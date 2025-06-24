@@ -1,118 +1,173 @@
-# SPASS Decryptor
+# 🔓 SPASS Decryptor
 
-A modern, web-based SPASS password file decryptor built with React and Material-UI. This application provides a clean, user-friendly interface to decrypt SPASS files and export the results in various formats.
+A secure, client-side web application for converting Samsung Pass export files (`.spass`) to Chrome-compatible CSV format. All processing happens locally in your browser - no data is ever transmitted to servers.
 
-## Features
+## 🎯 Purpose
 
-- 🔐 **Secure Decryption**: Implements the same decryption algorithm as the original Go SPASS decryptor
-- 📁 **File Upload**: Drag and drop or click to upload .spass files
-- 👁️ **Password Visibility**: Toggle password visibility for individual entries
-- 📋 **Copy to Clipboard**: Click on any field to copy its content
-- 📊 **CSV Export**: Export decrypted passwords to CSV format
-- 🎨 **Modern UI**: Clean Material-UI design with responsive layout
-- 🔒 **Client-Side Processing**: All decryption happens in the browser - no data sent to servers
+Samsung Pass exports are encrypted files that can't be directly imported into other password managers. This tool decrypts these files and converts them to a format that can be imported into Chrome, Firefox, or other password managers.
 
-## How It Works
+## ✨ Features
 
-The SPASS Decryptor uses the same cryptographic algorithm as the original Go implementation:
+- **🔒 100% Client-Side Processing**: All decryption and conversion happens in your browser
+- **🚫 Zero Data Transmission**: No files or passwords are sent to any servers
+- **📱 Modern UI**: Clean, responsive interface built with React and Material-UI
+- **🔐 Secure Decryption**: Uses Web Crypto API for AES-CBC decryption with PBKDF2 key derivation
+- **📊 Chrome CSV Format**: Outputs standard CSV format compatible with Chrome password import
+- **⚡ Fast Processing**: Efficient decryption and conversion algorithms
+- **📱 Mobile Friendly**: Responsive design that works on all devices
 
-1. **PBKDF2 Key Derivation**: Uses 70,000 iterations with HMAC-SHA256
-2. **AES-CBC Decryption**: 256-bit key with PKCS7 padding
-3. **Base64 Decoding**: Handles the encoded SPASS file format
-4. **Chrome Format Parsing**: Extracts URL, username, password, name, and notes
+## 🛡️ Security
 
-## Usage
+### Privacy First
+- **Offline Processing**: All data processing occurs exclusively in your browser
+- **No Server Communication**: Zero network requests during conversion
+- **Local Storage Only**: Files are never uploaded or stored on servers
+- **Immediate Cleanup**: Decrypted data is not persisted after conversion
 
-1. **Upload File**: Click "Select .spass File" to choose your encrypted SPASS file
-2. **Enter Password**: Type the password used to encrypt the file
-3. **Decrypt**: Click "Decrypt File" to process the file
-4. **View Results**: Browse through the decrypted password entries
-5. **Export**: Click "Export CSV" to download the results
+### Technical Security
+- **Web Crypto API**: Uses modern browser cryptography standards
+- **PBKDF2 Key Derivation**: 70,000 iterations for secure key generation
+- **AES-CBC Decryption**: Industry-standard encryption algorithm
+- **Secure Memory Handling**: Decrypted data is processed in memory only
 
-## Security Features
+## 🚀 Quick Start
 
-- ✅ All processing happens locally in your browser
-- ✅ No data is transmitted to external servers
-- ✅ Passwords are hidden by default
-- ✅ Secure clipboard operations
-- ✅ Input validation and error handling
+### Online Version
+Visit the live application at: [https://fck-spass.kobel.click/](https://fck-spass.kobel.click/)
 
-## Technical Details
+### Local Development
 
-### Dependencies
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/ArifKobel/spass-decryptor.git
+   cd spass-decryptor
+   ```
 
-- **React 19**: Modern React with hooks
-- **Material-UI**: Clean, accessible UI components
-- **CryptoJS**: Cryptographic functions for decryption
-- **TypeScript**: Type-safe development
-- **Vite**: Fast build tool and development server
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-### File Structure
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
 
+4. **Open your browser**
+   Navigate to `http://localhost:5173`
+
+## 📖 Usage
+
+1. **Export from Samsung Pass**
+   - Open Samsung Pass on your device
+   - Go to Settings → Export passwords
+   - Choose a password for the export file
+   - Save the `.spass` file
+
+2. **Convert with SPASS Decryptor**
+   - Open the web application
+   - Click "Select Samsung Pass Export File" and choose your `.spass` file
+   - Enter the password you used during export
+   - Click "Convert Securely & Download"
+
+3. **Import to Chrome**
+   - Open Chrome and go to Settings → Passwords
+   - Click the three dots → Import passwords
+   - Select the downloaded CSV file
+   - Your passwords will be imported
+
+## 🛠️ Technical Details
+
+### Architecture
+- **Frontend**: React 19 with TypeScript
+- **UI Framework**: Material-UI (MUI) with Tailwind CSS
+- **Build Tool**: Vite
+- **Cryptography**: Web Crypto API (PBKDF2 + AES-CBC)
+
+### SPASS File Format
+The application handles Samsung Pass export files with the following structure:
+- **Encryption**: AES-CBC with PBKDF2 key derivation
+- **Iterations**: 70,000 PBKDF2 iterations
+- **Salt**: 20 bytes
+- **IV**: 16 bytes
+- **Data Format**: Base64 encoded with CSV-like structure
+
+### Chrome CSV Format
+Output CSV files contain the following columns:
+- `name`: Website/service name
+- `url`: Website URL
+- `username`: Login username
+- `password`: Login password
+- `note`: Additional notes
+
+## 🔧 Development
+
+### Project Structure
 ```
-src/
-├── App.tsx              # Main application component
-├── utils/
-│   └── spassDecryptor.ts # Decryption logic and utilities
-├── App.css              # Custom styles
-└── main.tsx             # Application entry point
-```
-
-### Supported Formats
-
-Currently supports Chrome format export, which includes:
-- URL
-- Username
-- Password
-- Name/Title
-- Notes
-
-## Development
-
-### Prerequisites
-
-- Node.js 18+ 
-- npm or yarn
-
-### Installation
-
-```bash
-# Clone the repository
-git clone <repository-url>
-cd spass-decryptor
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
+spass-decryptor/
+├── src/
+│   ├── App.tsx                 # Main application component
+│   ├── SpassFileConverter.tsx  # File conversion interface
+│   ├── utils/
+│   │   └── spassDecryptor.ts   # Core decryption logic
+│   └── main.tsx               # Application entry point
+├── public/                    # Static assets
+├── package.json              # Dependencies and scripts
+└── vite.config.ts           # Build configuration
 ```
 
 ### Available Scripts
-
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
 
-## Browser Compatibility
+### Key Functions
+- `convertSpassToChromeCSV()` - Main conversion function
+- `decryptSpassData()` - Decrypts SPASS file content
+- `parseSpassData()` - Parses decrypted data into records
+- `recordsToCSV()` - Converts records to Chrome CSV format
 
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
+## 🤝 Contributing
 
-## License
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-This project is open source and available under the MIT License.
+## 📝 License
 
-## Contributing
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## ⚠️ Important Notes
 
-## Disclaimer
+### Security Warnings
+- The downloaded CSV file contains passwords in plain text
+- Keep the CSV file secure and delete it after importing
+- Never share the CSV file with others
+- Consider using a password manager's direct import feature when possible
 
-This tool is for legitimate password recovery purposes only. Users are responsible for ensuring they have the right to decrypt any files they process.
+### Browser Compatibility
+- Requires a modern browser with Web Crypto API support
+- Tested on Chrome, Firefox, Safari, and Edge
+- Not compatible with Internet Explorer
+
+### Limitations
+- Only supports Samsung Pass export files (`.spass` format)
+- Requires the correct password used during export
+- Output is limited to Chrome CSV format
+
+### Special Thanks
+This project was inspired by the excellent work of [0xdeb7ef/spass-manager](https://github.com/0xdeb7ef/spass-manager), a Go-based command-line tool for decrypting .spass files. Their reverse engineering of the Samsung Pass format made this web application possible. Check out their project for a command-line alternative!
+
+## 📞 Support
+
+If you encounter any issues or have questions:
+- Open an issue on GitHub
+- Check the browser console for error messages
+- Ensure your browser supports Web Crypto API
+
+---
+
+**Remember**: This tool processes sensitive password data. Always use it responsibly and ensure you're on a secure, private connection when handling password files. 
