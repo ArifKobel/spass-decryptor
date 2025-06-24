@@ -31,7 +31,16 @@ export default function App() {
       <footer className="py-2 text-center bg-blue-50 border-t border-blue-200">
         <div className="max-w-4xl mx-auto px-4 py-2">
           <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-            Developed by <Link href="https://arif.kobel.click" target="_blank" rel="noopener" underline="hover" sx={{ fontWeight: 500, color: '#1976d2' }}>arif.kobel.click</Link>
+            Developed by{' '}
+            <Link 
+              href="https://arif.kobel.click" 
+              target="_blank" 
+              rel="noopener" 
+              underline="hover" 
+              sx={{ fontWeight: 500, color: '#1976d2' }}
+            >
+              arif.kobel.click
+            </Link>
           </Typography>
         </div>
       </footer>

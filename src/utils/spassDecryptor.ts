@@ -46,11 +46,17 @@ const SPASS_COLUMN_MAP = {
 
 const DEFAULT_FILENAME = 'chrome_passwords.csv';
 
+/**
+ * Removes PKCS5 padding from decrypted data
+ */
 function removePKCS5Padding(data: Uint8Array): Uint8Array {
   const paddingLen = data[data.length - 1];
   return data.slice(0, data.length - paddingLen);
 }
 
+/**
+ * Converts base64 string to Uint8Array
+ */
 function base64ToUint8Array(base64: string): Uint8Array {
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
@@ -60,6 +66,9 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
+/**
+ * Escapes CSV field values properly
+ */
 function escapeCSVField(field: string): string {
   const needsQuoting = field.includes(',') || field.includes('"') || 
                       field.includes('\n') || field.includes('\r');
@@ -70,9 +79,11 @@ function escapeCSVField(field: string): string {
   return field;
 }
 
+/**
+ * Downloads CSV content as a file
+ */
 function downloadCSV(csvContent: string, filename: string): void {
   if (typeof window === 'undefined') {
-    console.warn('Download not available in non-browser environment');
     return;
   }
 
@@ -91,6 +102,9 @@ function downloadCSV(csvContent: string, filename: string): void {
   }
 }
 
+/**
+ * Safely decodes base64 string, returns original if decoding fails
+ */
 function safeBase64Decode(value: string): string {
   try {
     return atob(value);
@@ -99,6 +113,9 @@ function safeBase64Decode(value: string): string {
   }
 }
 
+/**
+ * Decrypts SPASS file data using Web Crypto API
+ */
 async function decryptSpassData(dataB64: string, password: string): Promise<Uint8Array> {
   const data = base64ToUint8Array(dataB64);
   
@@ -143,6 +160,9 @@ async function decryptSpassData(dataB64: string, password: string): Promise<Uint
   return removePKCS5Padding(new Uint8Array(decryptedBuffer));
 }
 
+/**
+ * Parses decrypted SPASS data into records
+ */
 function parseSpassData(text: string, includeEmptyFields: boolean): SpassRecord[] {
   const parts = text.split(SPASS_CONFIG.DATA_SEPARATOR);
   if (parts.length < 2) {
@@ -177,6 +197,9 @@ function parseSpassData(text: string, includeEmptyFields: boolean): SpassRecord[
   return records;
 }
 
+/**
+ * Converts records to Chrome CSV format
+ */
 function recordsToCSV(records: SpassRecord[]): string {
   const csvRows: string[] = [];
   
@@ -197,6 +220,9 @@ function recordsToCSV(records: SpassRecord[]): string {
   return csvRows.join('\n');
 }
 
+/**
+ * Main function to convert SPASS file to Chrome CSV format
+ */
 export async function convertSpassToChromeCSV(
   spassFile: File | string,
   password: string,
@@ -243,6 +269,9 @@ export async function convertSpassToChromeCSV(
   }
 }
 
+/**
+ * Convenience function to convert and download directly
+ */
 export async function convertAndDownload(
   spassFile: File | string,
   password: string,
@@ -255,6 +284,9 @@ export async function convertAndDownload(
   return result.recordCount;
 }
 
+/**
+ * Convenience function to get CSV string only
+ */
 export async function spassToCSV(
   spassFile: File | string,
   password: string
@@ -263,12 +295,18 @@ export async function spassToCSV(
   return result.csv;
 }
 
+/**
+ * Checks if a file is a valid SPASS file
+ */
 export function isSpassFile(file: File): boolean {
   return file.name.toLowerCase().endsWith('.spass') || 
          file.type === '' || 
          file.type === 'application/octet-stream';
 }
 
+/**
+ * Checks if Web Crypto API is supported
+ */
 export function isWebCryptoSupported(): boolean {
   return typeof crypto !== 'undefined' && 
          typeof crypto.subtle !== 'undefined';

@@ -43,6 +43,7 @@ const SpassFileConverter: React.FC = () => {
     e.preventDefault();
     setError('');
     setSuccess(false);
+    
     if (!file) {
       setError('Please select a Samsung Pass export file (.spass).');
       return;
@@ -51,6 +52,7 @@ const SpassFileConverter: React.FC = () => {
       setError('Please enter the password.');
       return;
     }
+    
     setLoading(true);
     try {
       const result = await convertSpassToChromeCSV(file, password, { autoDownload: true });
@@ -59,8 +61,9 @@ const SpassFileConverter: React.FC = () => {
       } else {
         setSuccess(true);
       }
-    } catch (err: any) {
-      setError(err.message || 'Error during conversion.');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error during conversion.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -133,7 +136,7 @@ const SpassFileConverter: React.FC = () => {
                 label="Password"
                 type="password"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.target.value)}
                 fullWidth
                 sx={{ mb: 3 }}
                 autoComplete="current-password"
@@ -161,6 +164,7 @@ const SpassFileConverter: React.FC = () => {
           </form>
         </CardContent>
       </Card>
+      
       <Snackbar
         open={success}
         autoHideDuration={4000}
