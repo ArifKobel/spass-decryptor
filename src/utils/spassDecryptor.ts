@@ -1,12 +1,3 @@
-/**
- * SPASS to Chrome Password CSV Converter
- * Converts SPASS encrypted files to Chrome-compatible password CSV format
- */
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
 export interface SpassToChromeResult {
   csv: string;
   filename: string;
@@ -20,18 +11,23 @@ export interface SpassToChromeOptions {
   includeEmptyFields?: boolean;
 }
 
-// =============================================================================
-// CONSTANTS
-// =============================================================================
+export interface SpassRecord {
+  name: string;
+  url: string;
+  username: string;
+  password: string;
+  note: string;
+}
 
 const SPASS_CONFIG = {
   ITERATION_COUNT: 70000,
   KEY_LENGTH: 32,
   SALT_BYTES: 20,
   BLOCK_SIZE: 16,
+  MIN_FIELDS: 33,
+  DATA_SEPARATOR: 'next_table',
 } as const;
 
-// Chrome CSV headers as expected by Chrome password import
 const CHROME_CSV_HEADERS = [
   'name',
   'url', 
@@ -40,9 +36,15 @@ const CHROME_CSV_HEADERS = [
   'note'
 ] as const;
 
-// =============================================================================
-// UTILITY FUNCTIONS
-// =============================================================================
+const SPASS_COLUMN_MAP = {
+  NAME: 17,
+  URL: 1,
+  USERNAME: 4,
+  PASSWORD: 7,
+  NOTE: 31,
+} as const;
+
+const DEFAULT_FILENAME = 'chrome_passwords.csv';
 
 function removePKCS5Padding(data: Uint8Array): Uint8Array {
   const paddingLen = data[data.length - 1];
@@ -59,9 +61,11 @@ function base64ToUint8Array(base64: string): Uint8Array {
 }
 
 function escapeCSVField(field: string): string {
-  // If field contains comma, quote, or newline, wrap in quotes and escape internal quotes
-  if (field.includes(',') || field.includes('"') || field.includes('\n') || field.includes('\r')) {
-    return '"' + field.replace(/"/g, '""') + '"';
+  const needsQuoting = field.includes(',') || field.includes('"') || 
+                      field.includes('\n') || field.includes('\r');
+  
+  if (needsQuoting) {
+    return `"${field.replace(/"/g, '""')}"`;
   }
   return field;
 }
@@ -87,19 +91,21 @@ function downloadCSV(csvContent: string, filename: string): void {
   }
 }
 
-// =============================================================================
-// CORE DECRYPTION
-// =============================================================================
+function safeBase64Decode(value: string): string {
+  try {
+    return atob(value);
+  } catch {
+    return value;
+  }
+}
 
 async function decryptSpassData(dataB64: string, password: string): Promise<Uint8Array> {
   const data = base64ToUint8Array(dataB64);
   
-  // Extract components
   const salt = data.slice(0, SPASS_CONFIG.SALT_BYTES);
   const iv = data.slice(SPASS_CONFIG.SALT_BYTES, SPASS_CONFIG.SALT_BYTES + SPASS_CONFIG.BLOCK_SIZE);
   const encryptedData = data.slice(SPASS_CONFIG.SALT_BYTES + SPASS_CONFIG.BLOCK_SIZE);
 
-  // Generate key
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
@@ -125,7 +131,6 @@ async function decryptSpassData(dataB64: string, password: string): Promise<Uint
     ['decrypt']
   );
 
-  // Decrypt
   const decryptedBuffer = await crypto.subtle.decrypt(
     {
       name: 'AES-CBC',
@@ -138,34 +143,60 @@ async function decryptSpassData(dataB64: string, password: string): Promise<Uint
   return removePKCS5Padding(new Uint8Array(decryptedBuffer));
 }
 
-// =============================================================================
-// MAIN CONVERSION FUNCTION
-// =============================================================================
+function parseSpassData(text: string, includeEmptyFields: boolean): SpassRecord[] {
+  const parts = text.split(SPASS_CONFIG.DATA_SEPARATOR);
+  if (parts.length < 2) {
+    throw new Error('Invalid SPASS format: missing data section');
+  }
 
-/**
- * Converts a SPASS file to Chrome Password CSV format
- * 
- * @param spassFile - File object or base64 string content of SPASS file
- * @param password - Password to decrypt the SPASS file
- * @param options - Optional configuration
- * @returns Promise with CSV content and metadata
- * 
- * @example
- * ```typescript
- * // With File object
- * const result = await convertSpassToChromeCSV(file, 'mypassword');
- * console.log(result.csv); // CSV content
- * 
- * // With auto-download
- * await convertSpassToChromeCSV(file, 'mypassword', { 
- *   autoDownload: true 
- * });
- * 
- * // With file content string
- * const fileContent = await file.text();
- * const result = await convertSpassToChromeCSV(fileContent, 'mypassword');
- * ```
- */
+  const csvData = parts[1].trim();
+  const dataLines = csvData.split('\n');
+  const records: SpassRecord[] = [];
+  
+  const dataRows = dataLines.slice(1);
+  
+  for (const line of dataRows) {
+    if (!line.trim()) continue;
+    
+    const fields = line.split(';');
+    if (fields.length < SPASS_CONFIG.MIN_FIELDS) continue;
+
+    const record: SpassRecord = {
+      name: safeBase64Decode(fields[SPASS_COLUMN_MAP.NAME] || ''),
+      url: safeBase64Decode(fields[SPASS_COLUMN_MAP.URL] || ''),
+      username: safeBase64Decode(fields[SPASS_COLUMN_MAP.USERNAME] || ''),
+      password: safeBase64Decode(fields[SPASS_COLUMN_MAP.PASSWORD] || ''),
+      note: safeBase64Decode(fields[SPASS_COLUMN_MAP.NOTE] || ''),
+    };
+
+    if (includeEmptyFields || Object.values(record).some(field => field.trim() !== '')) {
+      records.push(record);
+    }
+  }
+
+  return records;
+}
+
+function recordsToCSV(records: SpassRecord[]): string {
+  const csvRows: string[] = [];
+  
+  csvRows.push(CHROME_CSV_HEADERS.map(header => escapeCSVField(header)).join(','));
+  
+  for (const record of records) {
+    const values = [
+      record.name,
+      record.url,
+      record.username,
+      record.password,
+      record.note
+    ];
+    const escapedRow = values.map(field => escapeCSVField(field || ''));
+    csvRows.push(escapedRow.join(','));
+  }
+
+  return csvRows.join('\n');
+}
+
 export async function convertSpassToChromeCSV(
   spassFile: File | string,
   password: string,
@@ -179,86 +210,23 @@ export async function convertSpassToChromeCSV(
   } = options;
 
   try {
-    // Read file content
-    let fileContent: string;
-    if (typeof spassFile === 'string') {
-      fileContent = spassFile;
-    } else {
-      fileContent = await spassFile.text();
-    }
+    const fileContent = typeof spassFile === 'string' 
+      ? spassFile 
+      : await spassFile.text();
 
-    // Decrypt SPASS data
     const decryptedData = await decryptSpassData(fileContent, password);
     
-    // Validate decrypted data
     const text = new TextDecoder().decode(decryptedData);
     const lines = text.split('\n');
     
-    if (lines.length < 3 || lines[2].trim() !== 'next_table') {
+    if (lines.length < 3 || lines[2].trim() !== SPASS_CONFIG.DATA_SEPARATOR) {
       throw new Error('Invalid password or corrupted SPASS file');
     }
 
-    // Parse SPASS data
-    const parts = text.split('next_table');
-    if (parts.length < 2) {
-      throw new Error('Invalid SPASS format: missing data section');
-    }
+    const records = parseSpassData(text, includeEmptyFields);
+    const csvContent = recordsToCSV(records);
+    const filename = customFilename || DEFAULT_FILENAME;
 
-    const csvData = parts[1].trim();
-    const dataLines = csvData.split('\n');
-    
-    // Skip header line and process data
-    const records: string[][] = [];
-    const dataRows = dataLines.slice(1);
-    
-    for (const line of dataRows) {
-      if (!line.trim()) continue;
-      
-      const fields = line.split(';');
-      if (fields.length < 33) continue;
-
-      // Extract relevant fields for Chrome format
-      // SPASS columns: [1]=URL, [4]=Username, [7]=Password, [17]=Name, [31]=Note
-      const colsNeeded = [17, 1, 4, 7, 31]; // Reordered for Chrome: name, url, username, password, note
-      const record: string[] = [];
-
-      for (const colIndex of colsNeeded) {
-        if (colIndex < fields.length && fields[colIndex]) {
-          try {
-            // Try to decode base64 content
-            const decoded = atob(fields[colIndex]);
-            record.push(decoded);
-          } catch {
-            // If base64 decode fails, use raw value
-            record.push(fields[colIndex]);
-          }
-        } else {
-          record.push('');
-        }
-      }
-
-      // Filter out completely empty records unless includeEmptyFields is true
-      if (includeEmptyFields || record.some(field => field.trim() !== '')) {
-        records.push(record);
-      }
-    }
-
-    // Convert to CSV format
-    const csvRows: string[] = [];
-    
-    // Add header row
-    csvRows.push(CHROME_CSV_HEADERS.map(header => escapeCSVField(header)).join(','));
-    
-    // Add data rows
-    for (const record of records) {
-      const escapedRecord = record.map(field => escapeCSVField(field || ''));
-      csvRows.push(escapedRecord.join(','));
-    }
-
-    const csvContent = csvRows.join('\n');
-    const filename = customFilename || 'chrome_passwords.csv';
-
-    // Auto-download if requested
     if (autoDownload) {
       downloadCSV(csvContent, filename);
     }
@@ -275,17 +243,10 @@ export async function convertSpassToChromeCSV(
   }
 }
 
-// =============================================================================
-// CONVENIENCE FUNCTIONS
-// =============================================================================
-
-/**
- * Quick convert and download - one-liner function
- */
 export async function convertAndDownload(
   spassFile: File | string,
   password: string,
-  filename: string = 'chrome_passwords.csv'
+  filename: string = DEFAULT_FILENAME
 ): Promise<number> {
   const result = await convertSpassToChromeCSV(spassFile, password, {
     autoDownload: true,
@@ -294,9 +255,6 @@ export async function convertAndDownload(
   return result.recordCount;
 }
 
-/**
- * Convert SPASS file and return only the CSV string
- */
 export async function spassToCSV(
   spassFile: File | string,
   password: string
@@ -305,70 +263,15 @@ export async function spassToCSV(
   return result.csv;
 }
 
-/**
- * Validate if a file appears to be a SPASS file
- */
 export function isSpassFile(file: File): boolean {
   return file.name.toLowerCase().endsWith('.spass') || 
          file.type === '' || 
          file.type === 'application/octet-stream';
 }
 
-/**
- * Check if Web Crypto API is available
- */
 export function isWebCryptoSupported(): boolean {
   return typeof crypto !== 'undefined' && 
          typeof crypto.subtle !== 'undefined';
 }
 
-// =============================================================================
-// USAGE EXAMPLES IN COMMENTS
-// =============================================================================
-
-/*
-// USAGE EXAMPLES:
-
-// 1. Basic conversion
-const result = await convertSpassToChromeCSV(file, 'mypassword');
-console.log(result.csv); // CSV content
-console.log(`Converted ${result.recordCount} passwords`);
-
-// 2. Convert and auto-download
-await convertSpassToChromeCSV(file, 'mypassword', {
-  autoDownload: true,
-  customFilename: 'my_passwords.csv'
-});
-
-// 3. One-liner convert and download
-const count = await convertAndDownload(file, 'mypassword');
-alert(`Downloaded ${count} passwords to Chrome CSV`);
-
-// 4. Just get CSV string
-const csvString = await spassToCSV(file, 'mypassword');
-
-// 5. With file content string
-const fileContent = await file.text();
-const result = await convertSpassToChromeCSV(fileContent, 'mypassword');
-
-// 6. In React component
-const handleConvert = async () => {
-  try {
-    const result = await convertSpassToChromeCSV(selectedFile, password, {
-      autoDownload: true
-    });
-    setMessage(`Successfully converted ${result.recordCount} passwords`);
-  } catch (error) {
-    setError(`Conversion failed: ${error.message}`);
-  }
-};
-
-// 7. Validation before conversion
-if (isSpassFile(file) && isWebCryptoSupported()) {
-  const csvData = await spassToCSV(file, password);
-  // Use csvData...
-}
-
-*/
-
-export default convertSpassToChromeCSV;
+export default convertSpassToChromeCSV; 
