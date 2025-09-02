@@ -1,6 +1,7 @@
 import SpassFileConverter from './SpassFileConverter'
-import { AppBar, Toolbar, Typography, CssBaseline, Link } from '@mui/material';
+import { AppBar, Toolbar, Typography, CssBaseline, Link, Button } from '@mui/material';
 import SecurityIcon from '@mui/icons-material/Security';
+import GitHubIcon from '@mui/icons-material/GitHub';
 
 export default function App() {
   return (
@@ -13,6 +14,9 @@ export default function App() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 600, letterSpacing: 0.5, fontSize: '1.1rem' }}>
             F*CK .SPASS
           </Typography>
+          <Button variant="text" href="https://github.com/ArifKobel/spass-decryptor" target="_blank" rel="noopener" className="p-4">
+            <GitHubIcon className="text-white" />
+          </Button>
         </Toolbar>
       </AppBar>
       {/* Local Processing Notice */}
