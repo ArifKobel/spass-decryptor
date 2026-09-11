@@ -243,9 +243,11 @@ export async function convertSpassToChromeCSV(
     const decryptedData = await decryptSpassData(fileContent, password);
     
     const text = new TextDecoder().decode(decryptedData);
-    const lines = text.split('\n');
-    
-    if (lines.length < 3 || lines[2].trim() !== SPASS_CONFIG.DATA_SEPARATOR) {
+
+    // The header layout varies by SPASS format version (newer exports insert
+    // an extra line before `next_table`), so check for the marker anywhere
+    // in the text rather than at a fixed line index.
+    if (!text.includes(SPASS_CONFIG.DATA_SEPARATOR)) {
       throw new Error('Invalid password or corrupted SPASS file');
     }
 
