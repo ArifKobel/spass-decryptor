@@ -1,8 +1,18 @@
 @import "@fontsource-variable/inter";
 @import "tailwindcss";
 
+/* Arial scaled to Inter's metrics, so the swap once Inter has loaded doesn't shift the layout */
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial");
+  size-adjust: 107.12%;
+  ascent-override: 90.44%;
+  descent-override: 22.52%;
+  line-gap-override: 0%;
+}
+
 @theme {
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter Variable", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
 }
 
 html {
