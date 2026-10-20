@@ -47,14 +47,6 @@ const SPASS_COLUMN_MAP = {
 const DEFAULT_FILENAME = 'chrome_passwords.csv';
 
 /**
- * Removes PKCS5 padding from decrypted data
- */
-function removePKCS5Padding(data: Uint8Array): Uint8Array {
-  const paddingLen = data[data.length - 1];
-  return data.slice(0, data.length - paddingLen);
-}
-
-/**
  * Converts base64 string to Uint8Array
  */
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -117,7 +109,12 @@ function safeBase64Decode(value: string): string {
  * Decrypts SPASS file data using Web Crypto API
  */
 async function decryptSpassData(dataB64: string, password: string): Promise<Uint8Array> {
-  const data = base64ToUint8Array(dataB64);
+  let data: Uint8Array;
+  try {
+    data = base64ToUint8Array(dataB64.trim());
+  } catch {
+    throw new Error('This does not look like a .spass file');
+  }
   
   const salt = data.slice(0, SPASS_CONFIG.SALT_BYTES);
   const iv = data.slice(SPASS_CONFIG.SALT_BYTES, SPASS_CONFIG.SALT_BYTES + SPASS_CONFIG.BLOCK_SIZE);
@@ -148,16 +145,21 @@ async function decryptSpassData(dataB64: string, password: string): Promise<Uint
     ['decrypt']
   );
 
-  const decryptedBuffer = await crypto.subtle.decrypt(
-    {
-      name: 'AES-CBC',
-      iv: iv
-    },
-    key,
-    encryptedData
-  );
-
-  return removePKCS5Padding(new Uint8Array(decryptedBuffer));
+  // Web Crypto strips the PKCS#7 padding itself and rejects when it's invalid,
+  // which is what a wrong password almost always produces.
+  try {
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      {
+        name: 'AES-CBC',
+        iv: iv
+      },
+      key,
+      encryptedData
+    );
+    return new Uint8Array(decryptedBuffer);
+  } catch {
+    throw new Error('Wrong password or unsupported file');
+  }
 }
 
 /**
