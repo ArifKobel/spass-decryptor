@@ -103,11 +103,11 @@ function downloadCSV(csvContent: string, filename: string): void {
 }
 
 /**
- * Safely decodes base64 string, returns original if decoding fails
+ * Safely decodes base64 string as UTF-8, returns original if decoding fails
  */
 function safeBase64Decode(value: string): string {
   try {
-    return atob(value);
+    return new TextDecoder('utf-8', { fatal: true }).decode(base64ToUint8Array(value));
   } catch {
     return value;
   }
