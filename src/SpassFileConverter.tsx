@@ -1,230 +1,133 @@
-import React, { useState, useRef } from 'react';
-import {
-  Button,
-  TextField,
-  Box,
-  Typography,
-  Alert,
-  CircularProgress,
-  Card,
-  CardContent,
-  CardHeader,
-  Divider,
-  Tooltip,
-  Snackbar,
-  InputAdornment,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
-} from '@mui/material';
-import LockIcon from '@mui/icons-material/Lock';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
-import SecurityIcon from '@mui/icons-material/Security';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import convertSpassToChromeCSV from './utils/spassDecryptor';
+import { useState } from 'react'
+import convertSpassToChromeCSV from './utils/spassDecryptor'
 
-const SpassFileConverter: React.FC = () => {
-  const [file, setFile] = useState<File | null>(null);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [securityDialogOpen, setSecurityDialogOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+type Status =
+  | { kind: 'idle' }
+  | { kind: 'working' }
+  | { kind: 'error'; message: string }
+  | { kind: 'done'; count: number }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0] || null;
-    setFile(selected);
-    setError('');
-  };
+export default function SpassFileConverter() {
+  const [file, setFile] = useState<File | null>(null)
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const [status, setStatus] = useState<Status>({ kind: 'idle' })
+
+  const pickFile = (selected: File | null) => {
+    setFile(selected)
+    setStatus({ kind: 'idle' })
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragging(false)
+    pickFile(e.dataTransfer.files[0] ?? null)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess(false);
-    
-    if (!file) {
-      setError('Please select a Samsung Pass export file (.spass).');
-      return;
-    }
-    if (!password) {
-      setError('Please enter the password.');
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const result = await convertSpassToChromeCSV(file, password, { autoDownload: true });
-      if (!result.success) {
-        setError('Conversion failed.');
-      } else {
-        setSuccess(true);
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error during conversion.';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+    e.preventDefault()
+    if (!file || !password) return
 
-  const handleCloseSnackbar = () => setSuccess(false);
+    setStatus({ kind: 'working' })
+    try {
+      const result = await convertSpassToChromeCSV(file, password, { autoDownload: true })
+      setStatus({ kind: 'done', count: result.recordCount })
+    } catch (err) {
+      const message = err instanceof Error ? err.message.replace(/^Conversion failed: /, '') : 'Unknown error'
+      setStatus({ kind: 'error', message })
+    }
+  }
 
   return (
-    <Box display="flex" alignItems="center" justifyContent="center">
-      <Card elevation={8} sx={{ minWidth: 380, maxWidth: 450, width: '100%', p: 1, borderRadius: 3 }}>
-        <CardHeader
-          avatar={<SecurityIcon color="primary" sx={{ fontSize: 40 }} />}
-          title={
-            <Box display="flex" alignItems="center" justifyContent="space-between">
-              <Typography variant="h5" fontWeight={700} gutterBottom>
-                .SPASS to <br />Chrome CSV
-              </Typography>
-              <Tooltip title="Security Information" arrow placement="top">
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<HelpOutlineIcon />}
-                  onClick={() => setSecurityDialogOpen(true)}
-                  sx={{ 
-                    minWidth: 'auto', 
-                    px: 1.5, 
-                    py: 0.5,
-                    fontSize: '0.75rem',
-                    borderRadius: 2
-                  }}
-                >
-                  Security
-                </Button>
-              </Tooltip>
-            </Box>
-          }
-          subheader={
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Convert Samsung Pass export files (.spass) securely to Chrome format. 
-              All data is processed locally and not transmitted to servers.
-            </Typography>
-          }
-        />
-        <Divider sx={{ mx: 2 }} />
-        <CardContent sx={{ pt: 3 }}>
-          <form onSubmit={handleSubmit} autoComplete="off">
-            <Tooltip title="Only Samsung Pass export files (.spass) are accepted" arrow placement="top">
-              <span>
-                <Button
-                  variant="outlined"
-                  startIcon={<UploadFileIcon />}
-                  onClick={() => fileInputRef.current?.click()}
-                  fullWidth
-                  sx={{ mb: 3, py: 1.5, borderRadius: 2 }}
-                  tabIndex={-1}
-                >
-                  {file ? file.name : 'Select Samsung Pass Export File (.spass)'}
-                </Button>
-              </span>
-            </Tooltip>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".spass"
-              style={{ display: 'none' }}
-              onChange={handleFileChange}
-            />
-            <Tooltip title="Password to decrypt the file" arrow placement="top">
-              <TextField
-                label="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                fullWidth
-                sx={{ mb: 3 }}
-                autoComplete="current-password"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LockIcon color="action" />
-                    </InputAdornment>
-                  )
-                }}
-              />
-            </Tooltip>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              fullWidth
-              disabled={loading}
-              size="large"
-              sx={{ mb: 2, py: 1.5, borderRadius: 2, fontWeight: 600 }}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Convert Securely & Download'}
-            </Button>
-            {error && <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>{error}</Alert>}
-          </form>
-        </CardContent>
-      </Card>
-      
-      <Snackbar
-        open={success}
-        autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        message="✅ Download successful! File has been securely converted."
-      />
-      
-      {/* Security Dialog */}
-      <Dialog 
-        open={securityDialogOpen} 
-        onClose={() => setSecurityDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
+    <form
+      onSubmit={handleSubmit}
+      autoComplete="off"
+      className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6 dark:border-stone-800 dark:bg-stone-900"
+    >
+      <label
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragging(true)
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors ${
+          dragging
+            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40'
+            : 'border-stone-300 hover:border-stone-400 dark:border-stone-700 dark:hover:border-stone-600'
+        }`}
       >
-        <DialogTitle sx={{ pb: 1 }}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <SecurityIcon color="primary" />
-            <Typography variant="h6" fontWeight={600}>
-              Security Information
-            </Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body1" sx={{ mb: 2 }}>
-            <b>🔒 Offline Processing:</b>
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 2, pl: 2 }}>
-            • All data is processed exclusively in your browser<br/>
-            • No files or passwords are transmitted to servers<br/>
-            • Processing is completely offline
-          </Typography>
-          
-          <Typography variant="body1" sx={{ mb: 2, mt: 3 }}>
-            <b>⚠️ Important notice about the decrypted file:</b>
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 2, pl: 2 }}>
-            • The downloaded CSV file contains your passwords in plain text<br/>
-            • Keep this file secure and do not share it with others<br/>
-            • Delete the file after importing it into your password manager<br/>
-          </Typography>
-          
-          <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
-            <Typography variant="body2">
-              <b>Tip:</b> Import the passwords directly in your password manager and delete the CSV file afterwards.
-            </Typography>
-          </Alert>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button 
-            onClick={() => setSecurityDialogOpen(false)}
-            variant="contained"
-            sx={{ borderRadius: 2 }}
-          >
-            Understood
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  );
-};
+        <input
+          type="file"
+          accept=".spass"
+          className="sr-only"
+          onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
+        />
+        {file ? (
+          <>
+            <span className="font-mono text-sm break-all">{file.name}</span>
+            <span className="mt-1 text-xs text-stone-500">Click to pick a different file</span>
+          </>
+        ) : (
+          <>
+            <span className="font-medium">Drop your .spass file here</span>
+            <span className="mt-1 text-sm text-stone-500">or click to browse</span>
+          </>
+        )}
+      </label>
 
-export default SpassFileConverter; 
+      <label htmlFor="spass-password" className="mt-5 block text-sm font-medium">
+        Export password
+      </label>
+      <div className="relative mt-1.5">
+        <input
+          id="spass-password"
+          type={showPassword ? 'text' : 'password'}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="off"
+          className="w-full rounded-lg border border-stone-300 bg-transparent px-3 py-2.5 pr-16 dark:border-stone-700"
+        />
+        <button
+          type="button"
+          onClick={() => setShowPassword((v) => !v)}
+          className="absolute inset-y-0 right-0 px-3 text-xs text-stone-500 hover:text-stone-900 dark:hover:text-stone-100"
+        >
+          {showPassword ? 'Hide' : 'Show'}
+        </button>
+      </div>
+
+      <button
+        type="submit"
+        disabled={!file || !password || status.kind === 'working'}
+        className="mt-5 w-full rounded-lg bg-stone-900 px-4 py-3 font-medium text-white transition-colors hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-300"
+      >
+        {status.kind === 'working' ? 'Decrypting…' : 'Convert and download CSV'}
+      </button>
+
+      <div aria-live="polite">
+        {status.kind === 'error' && (
+          <p className="mt-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800 dark:bg-red-950/50 dark:text-red-300">
+            {status.message}. Double-check the password. If it's definitely right,{' '}
+            <a
+              href="https://github.com/ArifKobel/spass-decryptor/issues/new?template=bug_report.md"
+              target="_blank"
+              rel="noopener"
+              className="underline"
+            >
+              open an issue
+            </a>{' '}
+            with your Samsung Pass version.
+          </p>
+        )}
+        {status.kind === 'done' && (
+          <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200">
+            Exported {status.count} {status.count === 1 ? 'login' : 'logins'}. The CSV contains your passwords in
+            plain text, so delete it once you've imported it.
+          </p>
+        )}
+      </div>
+    </form>
+  )
+}
