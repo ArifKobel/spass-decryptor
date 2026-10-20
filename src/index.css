@@ -1,13 +1,19 @@
+@import "@fontsource-variable/inter";
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+}
 
 html {
   color-scheme: light dark;
 }
 
 body {
-  @apply bg-stone-50 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100;
+  @apply bg-white font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+  font-feature-settings: "cv11";
 }
 
 :focus-visible {
-  @apply outline-2 outline-offset-2 outline-emerald-600;
+  @apply outline-2 outline-offset-2 outline-zinc-900 dark:outline-zinc-100;
 }
